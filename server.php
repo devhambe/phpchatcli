@@ -5,10 +5,13 @@
 - Error Handling
 - UDP
 - Grafismo 
+- Username
+- Comentários
 */
 error_reporting(E_ALL);
 set_time_limit(0);
 
+//Função para transformar determinadas palavras em emojis
 function textoEmoji($data)
 {
     global $data;
@@ -24,6 +27,7 @@ function textoEmoji($data)
     }
 }
 
+//array de cores para a próxima função
 $_colors = array(
         'LIGHT_RED'      => "[1;31m",
         'LIGHT_GREEN'     => "[1;32m",
@@ -45,6 +49,7 @@ $_colors = array(
 
 );
 
+//função para atribuir uma cor ao texto
 function textcolored($text, $color="NORMAL", $back=1){
     global $_colors;
     $out = $_colors["$color"];
@@ -58,84 +63,114 @@ function textcolored($text, $color="NORMAL", $back=1){
 
 $ip = "127.0.0.1";
 $port = 44000;
-//$protocolo = readline("Insira o protocolo (TCP/UDP): ");
-$protocolo = "tcp";
-
+$protocolo = readline("Insira o protocolo (TCP/UDP): ");
 
 $talkback = array();
-$hora = date('H:i:s');
 
-try {
+//Código Servidor TCP
+if(strtolower($protocolo) == "tcp") {
+
+    //criação do socket
     $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+    if(!$sock)
+        die("Não foi possível criar o socket");
 
-    socket_set_option($sock, SOL_SOCKET, SO_REUSEADDR, 1);
+    //bind do socket
+    if(!socket_bind($sock, $ip, $port))
+        die("Não foi possível fazer o bind do socket");
 
-    $result = socket_bind($sock, $ip, $port);
+    //socket_listen com um backlog de 10 conexões
+    if(!socket_listen($sock, 10))
+        die("Não foi possível pôr o socket à escuta");
 
-    $result = socket_listen($sock, 10);
-}
-catch (ErrorException $ex) {
-    echo "Ocorreu um erro na criação do socket";
-}
+    //array de todos os clientes que se vão conectar ao socket
+    $clientes = array($sock);
 
-$clientes = array($sock);
-
-echo "\e[H\e[J";
-// echo $text = "╔" . str_repeat("=", 50) . "╗\n"; //TOPO
-// array_push($talkback, $text);
-while(true) {
-    $read = $clientes;
-    $write = array();
-    $except = array();
-    if(socket_select($read, $write, $except, 0) < 1)
-        continue;
-
-    if(in_array($sock, $read))
-    {
-        $clientes[] = $newsock = socket_accept($sock);
-
-        socket_write($newsock, "Bem-vindo à sala de chat! \nHá ". (count($clientes)-1)." cliente(s) conectados ao servidor\n"); //Mensagem de boas vindas enviado quando o cliente conectar
-
-        socket_getpeername($newsock, $ip); //ip do cliente
-        echo $text = textcolored("Novo cliente conectado: {$ip}\n", "LIGHT_BLUE");
-        array_push($talkback, $text);
-        $key = array_search($sock, $read);
-        unset($read[$key]);
-    }
-
-    foreach ($read as $read_sock) {
-        $data = @socket_read($read_sock, 1024, PHP_BINARY_READ);
-
-        if($data === false or $data == "/quit")
-        {
-            $key = array_search($read_sock, $clientes);
-            unset($clientes[$key]);
-            echo $text = textcolored("Cliente {$ip} desconectado.\n", "RED");
-            array_push($talkback, $text);
+    echo "\e[H\e[J";
+    // echo $text = "╔" . str_repeat("=", 50) . "╗\n"; //TOPO
+    // array_push($talkback, $text);
+    while(true) {
+        $read = $clientes;
+        $write = array();
+        $except = array();
+        if(socket_select($read, $write, $except, 0) < 1)
             continue;
+
+        //verifica se há um cliente a estabelecer conexão
+        if(in_array($sock, $read))
+        {
+            //aceita o cliente e adiciona-o ao array $clientes
+            $clientes[] = $newsock = socket_accept($sock);
+
+            //mensagem para o cliente quando entra
+            socket_write($newsock, "Bem-vindo à sala de chat! \nHá ". (count($clientes)-1)." cliente(s) conectados ao servidor\n");
+
+            //mensagem de entrada do cliente
+            socket_getpeername($newsock, $ip);
+            echo $text = textcolored("Novo cliente conectado: {$ip}\n", "LIGHT_BLUE");
+
+            array_push($talkback, $text);
+            
+            $key = array_search($sock, $read);
+            unset($read[$key]);
         }
 
-        $data = trim($data);
+        foreach ($read as $read_sock) {
+            $data = @socket_read($read_sock, 1024, PHP_BINARY_READ);
 
-        if(!empty($data))
-        {
-            textoEmoji($data); //funcao emoji
-            
-            $text = "{$hora} | {$ip}: ".$data."\n";
-
-            array_push($talkback, $text);
-
-            echo "\e[H\e[J";
-
-            for ($i=0; $i < count($talkback) ; $i++) { 
-                echo ($talkback[$i]);
+            if($data === false or $data == "/quit")
+            {
+                $key = array_search($read_sock, $clientes);
+                unset($clientes[$key]);
+                echo $text = textcolored("Cliente {$ip} desconectado.\n", "RED");
+                array_push($talkback, $text);
+                continue;
             }
 
-            $json = json_encode($talkback);
-            socket_write($read_sock, $json);
+            //Eliminação dos espaços em branco (trim)
+            $data = trim($data); 
+
+            if(!empty($data))
+            {
+                //Função Texto -> Emoji
+                textoEmoji($data);
+                $hora = date('H:i:s');
+                $text = "<$hora> | {$ip}: $data\n";
+
+                array_push($talkback, $text);
+
+                echo "\e[H\e[J";
+
+                for ($i=0; $i < count($talkback) ; $i++) { 
+                    echo ($talkback[$i]);
+                }
+
+                $json = json_encode($talkback);
+                socket_write($read_sock, $json);
+            }
         }
     }
-}
+    socket_close($sock);
 
-socket_close($sock);
+} // Código Servidor UDP
+else if (strtolower($protocolo) == "udp") {
+
+    //Criação do socket
+    $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+    if(!$sock)
+        die("Não foi possível criar o socket");
+
+    //Bind do socket
+    if(!socket_bind($sock, $ip, $port))
+        die("Não foi possível fazer bind do socket");
+    
+    //Loop de mensagens
+    while(true) { 
+        $hora = date('H:i:s');
+        socket_recvfrom($sock, $data, 1024, 0, $ip_cliente, $porta_cliente);
+        echo $text = "<$hora> | {$ip_cliente}: $data\n";
+        socket_sendto($sock, $text, strlen($text), 0, $ip_cliente, $porta_cliente);
+    }
+    socket_close($sock);
+}
 ?>

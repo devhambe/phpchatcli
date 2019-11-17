@@ -16,8 +16,7 @@ $ip = "127.0.0.1";
 $port = 44000;
 //$ip = readline("Insira o IP: ");
 //$port = readline("Insira a porta: ");
-// $protocolo = readline("Insira o protocolo (TCP/UDP): ");
-$protocolo = "tcp";
+$protocolo = readline("Insira o protocolo (TCP/UDP): ");
 
 if(strtolower($protocolo) == "tcp") {
     $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP) or die("Não foi possível criar socket\n");
@@ -58,8 +57,14 @@ if(strtolower($protocolo) == "tcp") {
     }
     
 } else if (strtolower($protocolo) == "udp") {
-    $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP) or die("Não foi possível criar socket\n");
-    echo "A ligar ao servidor '$ip' na porta '$port'...\n";
-
+    $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+    while(true) {
+        $input = readline(": ");
+        limparTela();
+        socket_sendto($sock, $input, strlen($input), 0, $ip, $port);
+        socket_recv($sock, $output, 2048, 0);
+        echo($output);
+    }
+    socket_close($sock);
 }
 ?>
