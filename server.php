@@ -3,19 +3,39 @@
 /*TODO
 - Historico
 - Error Handling
-- UDP
-- Grafismo 
+- UDP ✓
+- Grafismo ✓
 - Username
 - Comentários
 */
 error_reporting(E_ALL);
 set_time_limit(0);
 
+function limparTela() {
+    echo "\e[H\e[J";
+}
+
+//função para a escolha do protocolo
+function protocolo() {
+    echo("Escolha um protocolo:");
+    echo("\nTCP     - 1");
+    echo("\nUDP     - 2");
+    echo("\nSair    - 3\n");
+    $opcao = readline(": ");
+    return($opcao);
+}
+
 //Função para transformar determinadas palavras em emojis
 function textoEmoji($data)
 {
     global $data;
-    $emojis = array(":smile:"=>":-)", ":sad:"=>":-(", ":lenny:"=>"( ͡° ͜ʖ ͡°)");
+    $emojis = array(
+        ":smile:"   =>  ":-)",
+        ":sad:"     =>  ":-(",
+        ":lenny:"   =>  "( ͡° ͜ʖ ͡°)",
+        ":happy:"   =>  "^_^",
+        ":tableflip:"   =>  "(╯°□°）╯︵ ┻━┻",
+        );
     $words = preg_split("/[\s,]+/", $data);
 
     foreach ($emojis as $key => $value)
@@ -28,7 +48,7 @@ function textoEmoji($data)
 }
 
 //array de cores para a próxima função
-$_colors = array(
+$_cores = array(
         'LIGHT_RED'      => "[1;31m",
         'LIGHT_GREEN'     => "[1;32m",
         'YELLOW'     => "[1;33m",
@@ -50,25 +70,26 @@ $_colors = array(
 );
 
 //função para atribuir uma cor ao texto
-function textcolored($text, $color="NORMAL", $back=1){
-    global $_colors;
-    $out = $_colors["$color"];
+function textoCor($texto, $cor="NORMAL", $back=1){
+    global $_cores;
+    $out = $_cores["$cor"];
     if($out == ""){ $out = "[0m"; }
     if($back){
-        return chr(27)."$out$text".chr(27).chr(27)."[0m";
+        return chr(27)."$out$texto".chr(27).chr(27)."[0m";
     }else{
-        echo chr(27)."$out$text".chr(27).chr(27)."[0m";
+        echo chr(27)."$out$texto".chr(27).chr(27)."[0m";
     }
 }
 
 $ip = "127.0.0.1";
 $port = 44000;
-$protocolo = readline("Insira o protocolo (TCP/UDP): ");
+$protocolo = protocolo();
 
+//array de todas as mensagens
 $talkback = array();
 
-//Código Servidor TCP
-if(strtolower($protocolo) == "tcp") {
+//============================ TCP ============================
+if($protocolo == 1) {
 
     //criação do socket
     $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
@@ -86,7 +107,14 @@ if(strtolower($protocolo) == "tcp") {
     //array de todos os clientes que se vão conectar ao socket
     $clientes = array($sock);
 
-    echo "\e[H\e[J";
+    limparTela();
+    echo "
+     ___              _    _           _____ ___ ___ 
+    / __| ___ _ ___ _(_)__| |___ _ _  |_   _/ __| _ \
+    \__ \/ -_) '_\ V / / _` / _ \ '_|   | || (__|  _/
+    |___/\___|_|  \_/|_\__,_\___/_|     |_| \___|_|  
+                                                     
+    ";
     // echo $text = "╔" . str_repeat("=", 50) . "╗\n"; //TOPO
     // array_push($talkback, $text);
     while(true) {
@@ -107,7 +135,8 @@ if(strtolower($protocolo) == "tcp") {
 
             //mensagem de entrada do cliente
             socket_getpeername($newsock, $ip);
-            echo $text = textcolored("Novo cliente conectado: {$ip}\n", "LIGHT_BLUE");
+            limparTela();
+            echo $text = textoCor("Novo cliente conectado: {$ip}\n", "LIGHT_BLUE");
 
             array_push($talkback, $text);
             
@@ -116,13 +145,13 @@ if(strtolower($protocolo) == "tcp") {
         }
 
         foreach ($read as $read_sock) {
-            $data = @socket_read($read_sock, 1024, PHP_BINARY_READ);
+            $data = @socket_read($read_sock, 1024);
 
             if($data === false or $data == "/quit")
             {
                 $key = array_search($read_sock, $clientes);
                 unset($clientes[$key]);
-                echo $text = textcolored("Cliente {$ip} desconectado.\n", "RED");
+                echo $text = textoCor("Cliente {$ip} desconectado.\n", "RED");
                 array_push($talkback, $text);
                 continue;
             }
@@ -139,7 +168,7 @@ if(strtolower($protocolo) == "tcp") {
 
                 array_push($talkback, $text);
 
-                echo "\e[H\e[J";
+                limparTela();
 
                 for ($i=0; $i < count($talkback) ; $i++) { 
                     echo ($talkback[$i]);
@@ -152,8 +181,8 @@ if(strtolower($protocolo) == "tcp") {
     }
     socket_close($sock);
 
-} // Código Servidor UDP
-else if (strtolower($protocolo) == "udp") {
+} //============================ UDP ============================
+else if ($protocolo == 2) {
 
     //Criação do socket
     $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
@@ -164,13 +193,32 @@ else if (strtolower($protocolo) == "udp") {
     if(!socket_bind($sock, $ip, $port))
         die("Não foi possível fazer bind do socket");
     
+    limparTela();
+    echo "
+     ___              _    _           _   _ ___  ___ 
+    / __| ___ _ ___ _(_)__| |___ _ _  | | | |   \| _ \
+    \__ \/ -_) '_\ V / / _` / _ \ '_| | |_| | |) |  _/
+    |___/\___|_|  \_/|_\__,_\___/_|    \___/|___/|_|  
+                                                      
+    ";
+
     //Loop de mensagens
-    while(true) { 
+    while(true) {
         $hora = date('H:i:s');
         socket_recvfrom($sock, $data, 1024, 0, $ip_cliente, $porta_cliente);
-        echo $text = "<$hora> | {$ip_cliente}: $data\n";
-        socket_sendto($sock, $text, strlen($text), 0, $ip_cliente, $porta_cliente);
+        limparTela();
+        $text = "<$hora> | {$ip_cliente}: $data\n";
+        array_push($talkback, $text);
+        for ($i=0; $i < count($talkback) ; $i++) { 
+            echo ($talkback[$i]);
+        }
+        $json = json_encode($talkback);
+        socket_sendto($sock, $json, strlen($json), 0, $ip_cliente, $porta_cliente);
     }
     socket_close($sock);
+} else if ($protocolo == 3) {
+    
+} else {
+
 }
 ?>
