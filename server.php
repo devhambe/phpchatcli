@@ -1,12 +1,10 @@
 <?php
 
 /*TODO
-- Historico
-- Error Handling
-- UDP ✓
-- Grafismo ✓
-- Username
-- Comentários
+- Histórico
+- Username do cliente
+- Input do servidor para desligar
+- Error handling Cliente
 */
 error_reporting(E_ALL);
 set_time_limit(0);
@@ -81,13 +79,40 @@ function textoCor($texto, $cor="NORMAL", $back=1){
     }
 }
 
+function adicionarMsg($text) {
+    global $talkback;
+    for ($i=1; $i < count($talkback) - 1; $i++) { 
+        if($talkback[$i] == "\n") {
+            unset($talkback[$i]);
+            $talkback[$i] = $text;
+            break;
+        }
+        if($i == count($talkback) - 2) {
+            for ($j=1; $j < count($talkback) - 1; $j++) { 
+                $talkback[$j] = $talkback[$j+1];
+            }
+            unset($talkback[$i]);
+            $talkback[$i] = $text;
+            break;
+        }
+    }
+}
+
 $ip = "127.0.0.1";
 $port = 44000;
 $protocolo = protocolo();
 
 //array de todas as mensagens
-$talkback = array();
+$talkback = array_fill(0, 20, "\n");
 
+//$historico = array();
+
+$linhaCima = "╔". str_repeat("=", 100) ."╗\n";
+$linhaBaixo = "╚". str_repeat("=", 100) . "╝\n";
+$talkback[0] = $linhaCima;
+$talkback[19] = $linhaBaixo;
+
+start:
 //============================ TCP ============================
 if($protocolo == 1) {
 
@@ -115,8 +140,6 @@ if($protocolo == 1) {
     |___/\___|_|  \_/|_\__,_\___/_|     |_| \___|_|  
                                                      
     ";
-    // echo $text = "╔" . str_repeat("=", 50) . "╗\n"; //TOPO
-    // array_push($talkback, $text);
     while(true) {
         $read = $clientes;
         $write = array();
@@ -138,7 +161,7 @@ if($protocolo == 1) {
             limparTela();
             echo $text = textoCor("Novo cliente conectado: {$ip}\n", "LIGHT_BLUE");
 
-            array_push($talkback, $text);
+            adicionarMsg($text);
             
             $key = array_search($sock, $read);
             unset($read[$key]);
@@ -152,7 +175,7 @@ if($protocolo == 1) {
                 $key = array_search($read_sock, $clientes);
                 unset($clientes[$key]);
                 echo $text = textoCor("Cliente {$ip} desconectado.\n", "RED");
-                array_push($talkback, $text);
+                adicionarMsg($text);
                 continue;
             }
 
@@ -166,14 +189,14 @@ if($protocolo == 1) {
                 $hora = date('H:i:s');
                 $text = "<$hora> | {$ip}: $data\n";
 
-                array_push($talkback, $text);
+                adicionarMsg($text);
 
                 limparTela();
 
                 for ($i=0; $i < count($talkback) ; $i++) { 
                     echo ($talkback[$i]);
                 }
-
+                //var_dump($talkback);
                 $json = json_encode($talkback);
                 socket_write($read_sock, $json);
             }
@@ -208,7 +231,7 @@ else if ($protocolo == 2) {
         socket_recvfrom($sock, $data, 1024, 0, $ip_cliente, $porta_cliente);
         limparTela();
         $text = "<$hora> | {$ip_cliente}: $data\n";
-        array_push($talkback, $text);
+        adicionarMsg($text);
         for ($i=0; $i < count($talkback) ; $i++) { 
             echo ($talkback[$i]);
         }
@@ -219,6 +242,8 @@ else if ($protocolo == 2) {
 } else if ($protocolo == 3) {
     
 } else {
-
+    limparTela();
+    $protocolo = protocolo();
+    goto start;
 }
 ?>

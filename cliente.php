@@ -5,11 +5,6 @@ function limparTela() {
     echo "\e[H\e[J";
 }
 
-function inputBottom() {
-    //echo "\e[10;0H";
-    echo "\e[10B";
-}
-
 //array de cores para a próxima função
 $_cores = array(
     'LIGHT_RED'      => "[1;31m",
@@ -62,6 +57,7 @@ $port = 44000;
 //$port = readline("Insira a porta: ");
 $protocolo = protocolo();
 
+start:
 //============================ TCP ============================
 if($protocolo == 1) {
     $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP) or die("Não foi possível criar socket\n");
@@ -77,7 +73,6 @@ if($protocolo == 1) {
 
     limparTela();
     while(true){
-        inputBottom();
         $input = trim(readline(": "));
         limparTela();
         if($input == "/quit") {
@@ -94,7 +89,7 @@ if($protocolo == 1) {
         socket_write($sock, $input, strlen($input));
 
         $output = socket_read($sock, 8192);
-        $output = json_decode($output);
+        $output = json_decode($output, true);
         for ($i=0; $i < count($output) ; $i++) { 
             echo $output[$i];
         }
@@ -116,7 +111,7 @@ else if ($protocolo == 2) {
         }
         socket_sendto($sock, $input, strlen($input), 0, $ip, $port);
         socket_recv($sock, $output, 2048, 0);
-        $output = json_decode($output);
+        $output = json_decode($output, true);
         for ($i=0; $i < count($output) ; $i++) { 
             echo $output[$i];
         }
@@ -124,6 +119,8 @@ else if ($protocolo == 2) {
 } else if ($protocolo == 3) {
 
 } else {
-
+    limparTela();
+    $protocolo = protocolo();
+    goto start;
 }
 ?>
