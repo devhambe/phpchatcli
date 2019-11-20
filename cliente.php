@@ -51,27 +51,28 @@ function protocolo() {
 
 limparTela();
 
-$ip = "127.0.0.1";
-$port = 44000;
-//$ip = readline("Insira o IP: ");
-//$port = readline("Insira a porta: ");
+$ip = readline("Insira o IP: ");
+$port = readline("Insira a porta: ");
 $protocolo = protocolo();
 
 start:
 //============================ TCP ============================
 if($protocolo == 1) {
-    $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP) or die("Não foi possível criar socket\n");
-    echo "A ligar ao servidor '$ip' na porta '$port'...\n";
-
-    $result = socket_connect($sock, $ip, $port) or die("Não foi possível ligar ao socket\n");
-    echo "Ligação estabelecida com sucesso\n";
+    //criação do socket
+    $sock = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+    if(!$sock)
+        die("Não foi possível criar o socket");
+    
+    //ligação do socket
+    if(!@socket_connect($sock, $ip, $port))
+        die("Não foi possível ligar ao socket");
 
     limparTela();
     
     $output = socket_read($sock, 8192);
-    echo "$output \n";
+    echo textoCor("$output \n", "LIGHT_BLUE");
 
-    limparTela();
+    //limparTela();
     while(true){
         $input = trim(readline(": "));
         limparTela();
@@ -98,7 +99,12 @@ if($protocolo == 1) {
     
 } //============================ UDP ============================
 else if ($protocolo == 2) {
-    $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+    $sock = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+    if(!$sock) 
+        die("Não foi possível criar o socket");
+
+    limparTela();
+
     while(true) {
         $input = readline(": ");
         limparTela();
