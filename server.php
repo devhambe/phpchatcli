@@ -5,6 +5,9 @@
 - Username do cliente
 - Input do servidor para desligar
 - Error handling Cliente
+- /ban (server)
+- Pedir ip (localhost ou remote) e porta (server e cliente) 
+
 */
 error_reporting(E_ALL);
 set_time_limit(0);
