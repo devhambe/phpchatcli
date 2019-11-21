@@ -1,8 +1,7 @@
 <?php
 
 /*TODO
-- Histórico
-- Input do servidor para desligar
+- username? socket recv e send
 */
 
 error_reporting(E_ALL);
@@ -179,8 +178,9 @@ if($protocolo == 1) {
      ___              _    _           _____ ___ ___ 
     / __| ___ _ ___ _(_)__| |___ _ _  |_   _/ __| _ \
     \__ \/ -_) '_\ V / / _` / _ \ '_|   | || (__|  _/
-    |___/\___|_|  \_/|_\__,_\___/_|     |_| \___|_|  
-                                                     
+    |___/\___|_|  \_/|_\__,_\___/_|     |_| \___|_|
+
+    IP: $ip                            Porta: $port                                                
     ";
     while(true) {
         $read = $clientes;
@@ -215,39 +215,40 @@ if($protocolo == 1) {
 
             socket_getpeername($read_sock, $ip);
 
-            if($data === false or $data == "/quit") {
+            if($data === false || $data == "/quit") {
                 $key = array_search($read_sock, $clientes);
                 unset($clientes[$key]);
                 $text = textoCor("Cliente {$ip} desconectado.\n", "RED");
                 adicionarMsg($text);
                 printArray($talkback);
                 continue;
-            }
-            /*
-            if($data == "/h") {
-                
-            }
-            */
+            }       
             
             //Eliminação dos espaços em branco (trim)
             $data = trim($data); 
 
             if(!empty($data))
             {
-                //Função Texto -> Emoji
-                textoEmoji($data);
+                if($data == "/h") {
+                    $json = json_encode($historico);
+                    socket_write($read_sock, $json);
+                    limparTela();
+                } else {
+                    //Função Texto --> Emoji
+                    textoEmoji($data);
 
-                $hora = date('H:i:s');
+                    $hora = date('H:i:s');
 
-                $text = "<$hora> | {$ip}: $data\n";
-                adicionarMsg($text);
+                    $text = "<$hora> | {$ip}: $data\n";
+                    adicionarMsg($text);
 
-                limparTela();
+                    limparTela();
 
-                printArray($talkback);
+                    printArray($talkback);
 
-                $json = json_encode($talkback);
-                socket_write($read_sock, $json);
+                    $json = json_encode($talkback);
+                    socket_write($read_sock, $json);
+                }
             }
         }
     }
@@ -272,16 +273,24 @@ else if ($protocolo == 2) {
     \__ \/ -_) '_\ V / / _` / _ \ '_| | |_| | |) |  _/
     |___/\___|_|  \_/|_\__,_\___/_|    \___/|___/|_|  
                                                       
+    IP: $ip                            Porta: $port
     ";
 
     //Loop de mensagens
     while(true) {
-        $hora = date('H:i:s');
         socket_recvfrom($sock, $data, 1024, 0, $ip_cliente, $porta_cliente);
+        
+        textoEmoji($data);
+
+        $hora = date('H:i:s');
+
         limparTela();
         $text = "<$hora> | {$ip_cliente}: $data\n";
+
         adicionarMsg($text);
+
         printArray($talkback);
+
         $json = json_encode($talkback);
         socket_sendto($sock, $json, strlen($json), 0, $ip_cliente, $porta_cliente);
     }

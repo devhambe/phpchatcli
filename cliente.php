@@ -49,10 +49,24 @@ function protocolo() {
     return($opcao);
 }
 
+function printHistorico($historico) {
+    for ($i=0; $i < count($historico); $i++) { 
+        if($historico[$i] != "\n") {
+            echo $historico[$i];
+        }
+    }
+}
+
+function printArray($array){
+    for ($i=0; $i < count($array) ; $i++) { 
+        echo ($array[$i]);
+    }
+}
+
 limparTela();
 
-$ip = readline("Insira o IP: ");
-$port = readline("Insira a porta: ");
+$ip = trim(readline("Insira o IP: "));
+$port = trim(readline("Insira a porta: "));
 $protocolo = protocolo();
 
 start:
@@ -78,23 +92,30 @@ if($protocolo == 1) {
         limparTela();
         if($input == "/quit") {
             socket_write($sock, $input, strlen($input));
-            echo textoCor("A terminar sessão...\n", "RED");
             socket_shutdown($sock, 2);
             socket_close($sock);
-            echo textoCor("Sessão terminada com sucesso.\n\n", "UNDERSCORE");
+            echo textoCor("Sessão terminada com sucesso.\n", "RED");
             break;
-        }
-        if ($input == "") {
+        } else if ($input == "") {
             $input = " "; //ALT + 0160
+        } else if($input == "/h") {
+            limparTela();
+            socket_write($sock, $input, strlen($input));
+
+            $historico = socket_read($sock, 8192);
+            $historico = json_decode($historico, true);
+
+            printHistorico($historico);
+            
+            echo("Histórico de mensagens\n");
+            echo("Digite qualquer tecla para voltar\n");
+            readline(": ");
         }
         socket_write($sock, $input, strlen($input));
 
         $output = socket_read($sock, 8192);
         $output = json_decode($output, true);
-        for ($i=0; $i < count($output) ; $i++) { 
-            echo $output[$i];
-        }
-        
+        printArray($output);
     }
     
 } //============================ UDP ============================
@@ -114,13 +135,15 @@ else if ($protocolo == 2) {
             socket_close($sock);
             echo textoCor("Sessão terminada com sucesso.\n\n", "UNDERSCORE");
             break;
+        } else if ($input == "") {
+            $input = " ";
         }
+
         socket_sendto($sock, $input, strlen($input), 0, $ip, $port);
+
         socket_recv($sock, $output, 2048, 0);
         $output = json_decode($output, true);
-        for ($i=0; $i < count($output) ; $i++) { 
-            echo $output[$i];
-        }
+        printArray($output);
     }
 } else if ($protocolo == 3) {
 
