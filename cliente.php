@@ -83,6 +83,7 @@ if($protocolo == 1) {
 
     limparTela();
     
+    //lê a mensagem de boas vindas
     $output = socket_read($sock, 8192);
     echo textoCor("$output \n", "LIGHT_BLUE");
 
@@ -90,15 +91,18 @@ if($protocolo == 1) {
     while(true){
         $input = trim(readline(": "));
         limparTela();
+        // /quit para sair do chat e fechar o socket
         if($input == "/quit") {
             socket_write($sock, $input, strlen($input));
             socket_shutdown($sock, 2);
             socket_close($sock);
             echo textoCor("Sessão terminada com sucesso.\n", "RED");
             break;
-        } else if ($input == "") {
+        } 
+        else if ($input == "") {
             $input = " "; //ALT + 0160
-        } else if($input == "/h") {
+        } // /h para ver o histórico de mensagens
+        else if($input == "/h") {
             limparTela();
             socket_write($sock, $input, strlen($input));
 
@@ -113,6 +117,7 @@ if($protocolo == 1) {
         }
         socket_write($sock, $input, strlen($input));
 
+        //O array em formato JSON é convertido novamente para array e é apresentado
         $output = socket_read($sock, 8192);
         $output = json_decode($output, true);
         printArray($output);
@@ -120,6 +125,7 @@ if($protocolo == 1) {
     
 } //============================ UDP ============================
 else if ($protocolo == 2) {
+    //criação do socket
     $sock = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
     if(!$sock) 
         die("Não foi possível criar o socket");

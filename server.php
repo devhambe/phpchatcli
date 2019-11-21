@@ -1,9 +1,4 @@
 <?php
-
-/*TODO
-- username? socket recv e send
-*/
-
 error_reporting(E_ALL);
 set_time_limit(0);
 
@@ -78,6 +73,7 @@ function textoCor($texto, $cor="NORMAL", $back=1){
     }
 }
 
+//spaghetti code lol
 function adicionarMsg($text) {
     global $talkback;
     for ($i=1; $i < count($talkback) - 1; $i++) { 
@@ -113,6 +109,7 @@ function adicionarMsg($text) {
     }
 }
 
+//input escolha do IP
 function escolherIP() {
     limparTela();
     echo("Servidor em localhost ou remoto? ");
@@ -128,6 +125,7 @@ function escolherIP() {
     }
 }
 
+//loop for echo do array
 function printArray($array){
     for ($i=0; $i < count($array) ; $i++) { 
         echo ($array[$i]);
@@ -170,7 +168,7 @@ if($protocolo == 1) {
     if(!@socket_listen($sock, 10))
         die("Não foi possível pôr o socket à escuta");
 
-    //array de todos os clientes que se vão conectar ao socket
+    //array de todos os clientes que se vão conectar ao socket (incluindo o socket de escuta)
     $clientes = array($sock);
 
     limparTela();
@@ -183,6 +181,7 @@ if($protocolo == 1) {
     IP: $ip                            Porta: $port                                                
     ";
     while(true) {
+        //criar uma copia do array dos cliente para não ser modificada pelo socket_select()
         $read = $clientes;
         $write = array();
         $except = array();
@@ -199,6 +198,7 @@ if($protocolo == 1) {
             socket_write($newsock, "Bem-vindo à sala de chat! \nHá ". (count($clientes)-1)." cliente(s) conectados ao servidor\n
             Para sair digite '/quit' e para ver o histórico digite '/h'\n");
 
+            //ip do cliente
             socket_getpeername($newsock, $ip);
             limparTela();
             //mensagem de entrada do cliente
@@ -206,21 +206,27 @@ if($protocolo == 1) {
             adicionarMsg($text);
             printArray($talkback);
             
+            //remover o socket de escuta do array dos clientes com dados (read)
             $key = array_search($sock, $read);
             unset($read[$key]);
         }
 
+        //loop a passar por todos os cliente que têm dados para serem lidos
         foreach ($read as $read_sock) {
+            //ler os dados dos clientes
             $data = @socket_read($read_sock, 1024);
 
             socket_getpeername($read_sock, $ip);
 
             if($data === false || $data == "/quit") {
+                //remover o cliente do array dos $clientes
                 $key = array_search($read_sock, $clientes);
                 unset($clientes[$key]);
+
                 $text = textoCor("Cliente {$ip} desconectado.\n", "RED");
                 adicionarMsg($text);
                 printArray($talkback);
+                //continuar para o próximo cliente que tiver dados para serem lidos
                 continue;
             }       
             
@@ -229,6 +235,7 @@ if($protocolo == 1) {
 
             if(!empty($data))
             {
+                //Enviar o histórico
                 if($data == "/h") {
                     $json = json_encode($historico);
                     socket_write($read_sock, $json);
@@ -246,12 +253,14 @@ if($protocolo == 1) {
 
                     printArray($talkback);
 
+                    //O array é enviado em formato JSON para o cliente
                     $json = json_encode($talkback);
                     socket_write($read_sock, $json);
                 }
             }
         }
     }
+    //Fechar o socket
     socket_close($sock);
 
 } //============================ UDP ============================
@@ -278,6 +287,7 @@ else if ($protocolo == 2) {
 
     //Loop de mensagens
     while(true) {
+        //recebe os dados dos clientes
         socket_recvfrom($sock, $data, 1024, 0, $ip_cliente, $porta_cliente);
         
         textoEmoji($data);
@@ -300,6 +310,7 @@ else if ($protocolo == 2) {
 } else {
     limparTela();
     $protocolo = protocolo();
+    //volta ao inicio
     goto start;
 }
 ?>
