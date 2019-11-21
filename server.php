@@ -96,6 +96,22 @@ function adicionarMsg($text) {
             break;
         }
     }
+    global $historico;
+    for ($i=1; $i < count($historico) -1; $i++) {
+        if($historico[$i] == "\n") {
+            unset($historico[$i]);
+            $historico[$i] = $text;
+            break;
+        }
+        if($i == count($historico) - 2) {
+            for ($j=1; $j < count($historico) - 1; $j++) {
+                $historico[$j] = $historico[$j+1];
+            }
+            unset($historico[$i]);
+            $historico[$i] = $text;
+            break;
+        }
+    }
 }
 
 function escolherIP() {
@@ -123,16 +139,21 @@ $ip = escolherIP();
 $port = readline("Insira a porta: ");
 $protocolo = protocolo();
 
+$linhaCima = "╔". str_repeat("=", 100) ."╗\n";
+$linhaBaixo = "╚". str_repeat("=", 100) . "╝\n";
+
 //array de todas as mensagens
 $talkback = array_fill(0, 20, "\n");
 
-//$historico = array_fill(0, 100, "\n");
+//array do histórico
+$historico = array_fill(0, 100, "\n");
 
-$linhaCima = "╔". str_repeat("=", 100) ."╗\n";
-$linhaBaixo = "╚". str_repeat("=", 100) . "╝\n";
 $talkback[0] = $linhaCima;
 $talkback[19] = $linhaBaixo;
 
+$historico[0] = $linhaCima;
+$historico[99] = $linhaBaixo;
+ 
 start:
 //============================ TCP ============================
 if($protocolo == 1) {
@@ -175,7 +196,8 @@ if($protocolo == 1) {
             $clientes[] = $newsock = socket_accept($sock);
 
             //mensagem para o cliente quando entra
-            socket_write($newsock, "Bem-vindo à sala de chat! \nHá ". (count($clientes)-1)." cliente(s) conectados ao servidor\n");
+            socket_write($newsock, "Bem-vindo à sala de chat! \nHá ". (count($clientes)-1)." cliente(s) conectados ao servidor\n
+            Para sair digite '/quit' e para ver o histórico digite '/h'\n");
 
             socket_getpeername($newsock, $ip);
             limparTela();
@@ -193,8 +215,7 @@ if($protocolo == 1) {
 
             socket_getpeername($read_sock, $ip);
 
-            if($data === false or $data == "/quit")
-            {
+            if($data === false or $data == "/quit") {
                 $key = array_search($read_sock, $clientes);
                 unset($clientes[$key]);
                 $text = textoCor("Cliente {$ip} desconectado.\n", "RED");
@@ -202,7 +223,12 @@ if($protocolo == 1) {
                 printArray($talkback);
                 continue;
             }
-
+            /*
+            if($data == "/h") {
+                
+            }
+            */
+            
             //Eliminação dos espaços em branco (trim)
             $data = trim($data); 
 
