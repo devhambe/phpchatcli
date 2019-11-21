@@ -49,56 +49,89 @@ function protocolo() {
     return($opcao);
 }
 
+function printHistorico($historico) {
+    for ($i=0; $i < count($historico); $i++) { 
+        if($historico[$i] != "\n") {
+            echo $historico[$i];
+        }
+    }
+}
+
+function printArray($array){
+    for ($i=0; $i < count($array) ; $i++) { 
+        echo ($array[$i]);
+    }
+}
+
 limparTela();
 
-$ip = "127.0.0.1";
-$port = 44000;
-//$ip = readline("Insira o IP: ");
-//$port = readline("Insira a porta: ");
+$ip = trim(readline("Insira o IP: "));
+$port = trim(readline("Insira a porta: "));
 $protocolo = protocolo();
 
 start:
 //============================ TCP ============================
 if($protocolo == 1) {
-    $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP) or die("Não foi possível criar socket\n");
-    echo "A ligar ao servidor '$ip' na porta '$port'...\n";
-
-    $result = socket_connect($sock, $ip, $port) or die("Não foi possível ligar ao socket\n");
-    echo "Ligação estabelecida com sucesso\n";
+    //criação do socket
+    $sock = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+    if(!$sock)
+        die("Não foi possível criar o socket");
+    
+    //ligação do socket
+    if(!@socket_connect($sock, $ip, $port))
+        die("Não foi possível ligar ao socket");
 
     limparTela();
     
+    //lê a mensagem de boas vindas
     $output = socket_read($sock, 8192);
-    echo "$output \n";
+    echo textoCor("$output \n", "LIGHT_BLUE");
 
-    limparTela();
+    //limparTela();
     while(true){
         $input = trim(readline(": "));
         limparTela();
+        // /quit para sair do chat e fechar o socket
         if($input == "/quit") {
             socket_write($sock, $input, strlen($input));
-            echo textoCor("A terminar sessão...\n", "RED");
             socket_shutdown($sock, 2);
             socket_close($sock);
-            echo textoCor("Sessão terminada com sucesso.\n\n", "UNDERSCORE");
+            echo textoCor("Sessão terminada com sucesso.\n", "RED");
             break;
-        }
-        if ($input == "") {
+        } 
+        else if ($input == "") {
             $input = " "; //ALT + 0160
+        } // /h para ver o histórico de mensagens
+        else if($input == "/h") {
+            limparTela();
+            socket_write($sock, $input, strlen($input));
+
+            $historico = socket_read($sock, 8192);
+            $historico = json_decode($historico, true);
+
+            printHistorico($historico);
+            
+            echo("Histórico de mensagens\n");
+            echo("Digite qualquer tecla para voltar\n");
+            readline(": ");
         }
         socket_write($sock, $input, strlen($input));
 
+        //O array em formato JSON é convertido novamente para array e é apresentado
         $output = socket_read($sock, 8192);
         $output = json_decode($output, true);
-        for ($i=0; $i < count($output) ; $i++) { 
-            echo $output[$i];
-        }
-        
+        printArray($output);
     }
     
 } //============================ UDP ============================
 else if ($protocolo == 2) {
-    $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+    //criação do socket
+    $sock = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+    if(!$sock) 
+        die("Não foi possível criar o socket");
+
+    limparTela();
+
     while(true) {
         $input = readline(": ");
         limparTela();
@@ -108,13 +141,15 @@ else if ($protocolo == 2) {
             socket_close($sock);
             echo textoCor("Sessão terminada com sucesso.\n\n", "UNDERSCORE");
             break;
+        } else if ($input == "") {
+            $input = " ";
         }
+
         socket_sendto($sock, $input, strlen($input), 0, $ip, $port);
+
         socket_recv($sock, $output, 2048, 0);
         $output = json_decode($output, true);
-        for ($i=0; $i < count($output) ; $i++) { 
-            echo $output[$i];
-        }
+        printArray($output);
     }
 } else if ($protocolo == 3) {
 

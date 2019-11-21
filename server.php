@@ -1,14 +1,4 @@
 <?php
-
-/*TODO
-- Histórico
-- Username do cliente
-- Input do servidor para desligar
-- Error handling Cliente
-- /ban (server)
-- Pedir ip (localhost ou remote) e porta (server e cliente) 
-
-*/
 error_reporting(E_ALL);
 set_time_limit(0);
 
@@ -18,6 +8,7 @@ function limparTela() {
 
 //função para a escolha do protocolo
 function protocolo() {
+    limparTela();
     echo("Escolha um protocolo:");
     echo("\nTCP     - 1");
     echo("\nUDP     - 2");
@@ -82,6 +73,7 @@ function textoCor($texto, $cor="NORMAL", $back=1){
     }
 }
 
+//spaghetti code lol
 function adicionarMsg($text) {
     global $talkback;
     for ($i=1; $i < count($talkback) - 1; $i++) { 
@@ -99,40 +91,84 @@ function adicionarMsg($text) {
             break;
         }
     }
+    global $historico;
+    for ($i=1; $i < count($historico) -1; $i++) {
+        if($historico[$i] == "\n") {
+            unset($historico[$i]);
+            $historico[$i] = $text;
+            break;
+        }
+        if($i == count($historico) - 2) {
+            for ($j=1; $j < count($historico) - 1; $j++) {
+                $historico[$j] = $historico[$j+1];
+            }
+            unset($historico[$i]);
+            $historico[$i] = $text;
+            break;
+        }
+    }
 }
 
-$ip = "127.0.0.1";
-$port = 44000;
+//input escolha do IP
+function escolherIP() {
+    limparTela();
+    echo("Servidor em localhost ou remoto? ");
+    echo("\nLocalhost   - 1");
+    echo("\nRemoto      - 2");
+    echo("\nSair        - 3\n");
+    $opcao = readline(": ");
+    if($opcao == 1) {
+        return("localhost");
+    } else if ($opcao == 2){
+        $ip = readline("Insira o IP: ");
+        return $ip;
+    }
+}
+
+//loop for echo do array
+function printArray($array){
+    for ($i=0; $i < count($array) ; $i++) { 
+        echo ($array[$i]);
+    }
+}
+
+$ip = escolherIP();
+$port = readline("Insira a porta: ");
 $protocolo = protocolo();
+
+$linhaCima = "╔". str_repeat("=", 100) ."╗\n";
+$linhaBaixo = "╚". str_repeat("=", 100) . "╝\n";
 
 //array de todas as mensagens
 $talkback = array_fill(0, 20, "\n");
 
-//$historico = array();
+//array do histórico
+$historico = array_fill(0, 100, "\n");
 
-$linhaCima = "╔". str_repeat("=", 100) ."╗\n";
-$linhaBaixo = "╚". str_repeat("=", 100) . "╝\n";
 $talkback[0] = $linhaCima;
 $talkback[19] = $linhaBaixo;
 
+$historico[0] = $linhaCima;
+$historico[99] = $linhaBaixo;
+ 
 start:
 //============================ TCP ============================
 if($protocolo == 1) {
 
     //criação do socket
-    $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+    $sock = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
     if(!$sock)
         die("Não foi possível criar o socket");
 
     //bind do socket
-    if(!socket_bind($sock, $ip, $port))
+    if(!@socket_bind($sock, $ip, $port))
         die("Não foi possível fazer o bind do socket");
 
     //socket_listen com um backlog de 10 conexões
-    if(!socket_listen($sock, 10))
+    if(!@socket_listen($sock, 10))
         die("Não foi possível pôr o socket à escuta");
 
-    //array de todos os clientes que se vão conectar ao socket
+    //array de todos os clientes que se vão conectar ao socket (incluindo o socket de escuta)
     $clientes = array($sock);
 
     limparTela();
@@ -140,10 +176,12 @@ if($protocolo == 1) {
      ___              _    _           _____ ___ ___ 
     / __| ___ _ ___ _(_)__| |___ _ _  |_   _/ __| _ \
     \__ \/ -_) '_\ V / / _` / _ \ '_|   | || (__|  _/
-    |___/\___|_|  \_/|_\__,_\___/_|     |_| \___|_|  
-                                                     
+    |___/\___|_|  \_/|_\__,_\___/_|     |_| \___|_|
+
+    IP: $ip                            Porta: $port                                                
     ";
     while(true) {
+        //criar uma copia do array dos cliente para não ser modificada pelo socket_select()
         $read = $clientes;
         $write = array();
         $except = array();
@@ -157,66 +195,84 @@ if($protocolo == 1) {
             $clientes[] = $newsock = socket_accept($sock);
 
             //mensagem para o cliente quando entra
-            socket_write($newsock, "Bem-vindo à sala de chat! \nHá ". (count($clientes)-1)." cliente(s) conectados ao servidor\n");
+            socket_write($newsock, "Bem-vindo à sala de chat! \nHá ". (count($clientes)-1)." cliente(s) conectados ao servidor\n
+            Para sair digite '/quit' e para ver o histórico digite '/h'\n");
 
-            //mensagem de entrada do cliente
+            //ip do cliente
             socket_getpeername($newsock, $ip);
             limparTela();
-            echo $text = textoCor("Novo cliente conectado: {$ip}\n", "LIGHT_BLUE");
-
+            //mensagem de entrada do cliente
+            $text = textoCor("Novo cliente conectado: {$ip}\n", "LIGHT_BLUE");
             adicionarMsg($text);
+            printArray($talkback);
             
+            //remover o socket de escuta do array dos clientes com dados (read)
             $key = array_search($sock, $read);
             unset($read[$key]);
         }
 
+        //loop a passar por todos os cliente que têm dados para serem lidos
         foreach ($read as $read_sock) {
+            //ler os dados dos clientes
             $data = @socket_read($read_sock, 1024);
 
-            if($data === false or $data == "/quit")
-            {
+            socket_getpeername($read_sock, $ip);
+
+            if($data === false || $data == "/quit") {
+                //remover o cliente do array dos $clientes
                 $key = array_search($read_sock, $clientes);
                 unset($clientes[$key]);
-                echo $text = textoCor("Cliente {$ip} desconectado.\n", "RED");
-                adicionarMsg($text);
-                continue;
-            }
 
+                $text = textoCor("Cliente {$ip} desconectado.\n", "RED");
+                adicionarMsg($text);
+                printArray($talkback);
+                //continuar para o próximo cliente que tiver dados para serem lidos
+                continue;
+            }       
+            
             //Eliminação dos espaços em branco (trim)
             $data = trim($data); 
 
             if(!empty($data))
             {
-                //Função Texto -> Emoji
-                textoEmoji($data);
-                $hora = date('H:i:s');
-                $text = "<$hora> | {$ip}: $data\n";
+                //Enviar o histórico
+                if($data == "/h") {
+                    $json = json_encode($historico);
+                    socket_write($read_sock, $json);
+                    limparTela();
+                } else {
+                    //Função Texto --> Emoji
+                    textoEmoji($data);
 
-                adicionarMsg($text);
+                    $hora = date('H:i:s');
 
-                limparTela();
+                    $text = "<$hora> | {$ip}: $data\n";
+                    adicionarMsg($text);
 
-                for ($i=0; $i < count($talkback) ; $i++) { 
-                    echo ($talkback[$i]);
+                    limparTela();
+
+                    printArray($talkback);
+
+                    //O array é enviado em formato JSON para o cliente
+                    $json = json_encode($talkback);
+                    socket_write($read_sock, $json);
                 }
-                //var_dump($talkback);
-                $json = json_encode($talkback);
-                socket_write($read_sock, $json);
             }
         }
     }
+    //Fechar o socket
     socket_close($sock);
 
 } //============================ UDP ============================
 else if ($protocolo == 2) {
 
     //Criação do socket
-    $sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+    $sock = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
     if(!$sock)
         die("Não foi possível criar o socket");
 
     //Bind do socket
-    if(!socket_bind($sock, $ip, $port))
+    if(!@socket_bind($sock, $ip, $port))
         die("Não foi possível fazer bind do socket");
     
     limparTela();
@@ -226,18 +282,25 @@ else if ($protocolo == 2) {
     \__ \/ -_) '_\ V / / _` / _ \ '_| | |_| | |) |  _/
     |___/\___|_|  \_/|_\__,_\___/_|    \___/|___/|_|  
                                                       
+    IP: $ip                            Porta: $port
     ";
 
     //Loop de mensagens
     while(true) {
-        $hora = date('H:i:s');
+        //recebe os dados dos clientes
         socket_recvfrom($sock, $data, 1024, 0, $ip_cliente, $porta_cliente);
+        
+        textoEmoji($data);
+
+        $hora = date('H:i:s');
+
         limparTela();
         $text = "<$hora> | {$ip_cliente}: $data\n";
+
         adicionarMsg($text);
-        for ($i=0; $i < count($talkback) ; $i++) { 
-            echo ($talkback[$i]);
-        }
+
+        printArray($talkback);
+
         $json = json_encode($talkback);
         socket_sendto($sock, $json, strlen($json), 0, $ip_cliente, $porta_cliente);
     }
@@ -247,6 +310,7 @@ else if ($protocolo == 2) {
 } else {
     limparTela();
     $protocolo = protocolo();
+    //volta ao inicio
     goto start;
 }
 ?>
