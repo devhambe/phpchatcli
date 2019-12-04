@@ -313,4 +313,5 @@ else if ($protocolo == 2) {
     //volta ao inicio
     goto start;
 }
+
 ?>
